@@ -11,8 +11,8 @@ lp_contract_addr = "0xba6418100dB9B93356bFB6A472411FDCfa2e4141"
 wallet_public_addr = "0x361472B5784e83fBF779b015f75ea0722741f304"
 dextool_lp_url = "https://www.dextools.io/chain-bsc/api/pair/search?p=0xba6418100dB9B93356bFB6A472411FDCfa2e4141"
 loop_sleep_seconds = 0.5
-margin_of_error = 0.1
 start_polling_threshold_in_seconds = 10
+piggy_bank_id = 0
 
 # load private key
 wallet_private_key = open('key.txt', "r").readline()
@@ -35,6 +35,22 @@ class cycleItem:
         self.type = type
         self.minimumTruffles = minimumTruffles
 
+# piggyBank class
+# class piggyBank: 
+#     def __init__(self,
+#                  id,
+#                  isStakeOn,
+#                  hatcheryPiglets,
+#                  claimedTruffles,
+#                  lastFeeding,
+#                  lastCompounded,
+#                  trufflesUsed,
+#                  trufflesSold,
+#                  isMaxPayout): 
+#         self.id = id 
+#         self.type = type
+#         self.minimumTruffles = minimumTruffles
+
 # cycle types are "compound" or "sell"
 cycle = [] 
 cycle.append( cycleItem(1, "compound", 1.00) )
@@ -53,22 +69,31 @@ def total_liquidity():
     yy = json.loads(rr)
     return yy[0]['liquidity']
 
-def truffles_for_1_piglet():
-    trufflesPerPiglet = piggy_bank_contract.functions.TRUFFLES_TO_FEED_1PIGLET().call()
-    return trufflesPerPiglet
+def truffles_to_get_1_piglet():
+    trufflesToGet1Piglet = piggy_bank_contract.functions.TRUFFLES_TO_FEED_1PIGLET().call()
+    return trufflesToGet1Piglet
 
-def available_piglets(piggyBankId):
-    return piggy_bank_contract.functions.getMyPiglets(piggyBankId).call()
+def bank_piglets():
+    return piggy_bank_contract.functions.getMyPiglets(piggy_bank_id).call()
 
-def feed(piggyBankId):
-    txn = piggy_bank_contract.functions.feedPiglets(piggyBankId, wallet_public_addr).buildTransaction(c.get_tx_options(wallet_public_addr, 500000))
+def bank_truffles():
+    return piggy_bank_contract.functions.getUserTruffles(wallet_public_addr, piggy_bank_id).call()
+
+def bank_bonus():
+    return piggy_bank_contract.functions.getBonus(wallet_public_addr, piggy_bank_id).call()
+
+def feed():
+    txn = piggy_bank_contract.functions.feedPiglets(piggy_bank_id, wallet_public_addr).buildTransaction(c.get_tx_options(wallet_public_addr, 500000))
     return c.send_txn(txn, wallet_private_key)
 
-def piggyBanks():
+def piggy_banks():
     return piggy_bank_contract.functions.getMyPiggyBanks(wallet_public_addr).call()
 
-def sell(piggyBankId):
-    txn = piggy_bank_contract.functions.sellTruffles(piggyBankId).buildTransaction(c.get_tx_options(wallet_public_addr, 500000))
+def piggy_bank_info():
+    return piggy_bank_contract.functions.piggyBankInfo(wallet_public_addr, piggy_bank_id).call()
+
+def sell():
+    txn = piggy_bank_contract.functions.sellTruffles(piggy_bank_id).buildTransaction(c.get_tx_options(wallet_public_addr, 500000))
     return c.send_txn(txn, wallet_private_key)
 
 def total_supply():
@@ -80,13 +105,6 @@ def buildTimer(t):
     hours, mins = divmod(int(mins), 60)
     timer = '{:02d} hours, {:02d} minutes, {:02d} seconds'.format(hours, mins, secs)
     return timer
-
-def getNextCompoundingDate(t):
-    mins, secs = divmod(int(t), 60)
-    hours, mins = divmod(int(mins), 60)
-    nextAt = datetime.today() + timedelta(hours=hours,minutes=mins,seconds=secs)
-    timestampStr = nextAt.strftime("[%d-%b-%Y (%H:%M:%S)]")
-    return timestampStr
 
 def countdown(t):
     while t:
@@ -121,82 +139,74 @@ def getNextCycleId(currentCycleId):
 nextCycleType = findCycleType(nextCycleId)
 
 def itterate(nextCycleId, nextCycleType):
-    piggyBanks = piggyBanks()
+    # piggyBanks = piggy_banks()
     # print(piggyBanks)
-    # trufflesPerPiglet = truffles_for_1_piglet()
-    # available = available_piglets()
-    # plantedPlants = planted_plants()
-    # availablePlants = available / trufflesPerPiglet
-
-    # cycleminimumTruffles = findCycleminimumTruffles(nextCycleId)
-
-    # plantsNeededForPlanting = (cycleminimumTruffles + margin_of_error) - availablePlants
-    # seedsNeededForPlanting = plantsNeededForPlanting * trufflesPerPiglet
     
-    # seedsPerDay = plantedPlants * truffles_per_piglet
-    # plantsPerDay = seedsPerDay/trufflesPerPiglet
+    info = piggy_bank_info()
+    piglets = info[2]
+    durationTimestamp = info[9][2]
+    nextCompoundingDate = datetime.fromtimestamp(durationTimestamp) + timedelta(hours=24)
+    bankTruffles = bank_truffles()
+    bonus = bank_bonus()
+    trufflesToGet1Piglet = truffles_to_get_1_piglet()
+    totalSupply = total_supply()
+    totalLiquidityValue = total_liquidity()
+    lpValue = (float(totalLiquidityValue)/float(totalSupply))*(trufflesToGet1Piglet/bankTruffles)
+
+    secondsUntilCompounding =  (datetime.today() + timedelta(hours=19) - nextCompoundingDate).total_seconds()
+
+    dateTimeObj = datetime.now()
+    timestampStr = dateTimeObj.strftime("[%d-%b-%Y (%H:%M:%S)]")
+
+    sleep = loop_sleep_seconds 
+
+    print("********** STATS *******")
+    print(f"{timestampStr} Piggy Bank id: {piggy_bank_id}")
+    print(f"{timestampStr} Piglets: {piglets}")
+    print(f"{timestampStr} Truffles needed to get 1 piglet: {trufflesToGet1Piglet}")
+    print(f"{timestampStr} Truffles generated: {bankTruffles}")
+    print(f"{timestampStr} Truffles LP value: {lpValue:.2f}")
+    print(f"{timestampStr} Next compounding at: {nextCompoundingDate}")
+    print("************************")
     
-    # daysUntilPlanting = seedsNeededForPlanting / seedsPerDay
-    # hoursUntilPlanting = daysUntilPlanting * 24 
-    # secondsUntilPlanting = hoursUntilPlanting * 60 * 60
-
-    # totalSupply = total_supply()
-    # totalLiquidityValue = total_liquidity()
+    cycleminimumTruffles = findCycleminimumTruffles(nextCycleId)
     
-    # lpValuePerDay = (float(totalLiquidityValue)/float(totalSupply))*0.12*plantsPerDay
-
-    # dateTimeObj = datetime.now()
-    # timestampStr = dateTimeObj.strftime("[%d-%b-%Y (%H:%M:%S)]")
-
-    # sleep = loop_sleep_seconds 
-    
-    # print("********** STATS *******")
-    # print(f"{timestampStr} Next cycle type: {nextCycleType}")
-    # print(f"{timestampStr} LP daily value: {(lpValuePerDay):.3f}")
-    # print(f"{timestampStr} Plants per day: {(seedsPerDay/trufflesPerPiglet):.3f}")
-    # print(f"{timestampStr} Planted plants: {plantedPlants:.3f}")
-    # print(f"{timestampStr} Available plants: {availablePlants:.3f}")
-    # print(f"{timestampStr} Margin of error: {margin_of_error:.3f}")
-    # print(f"{timestampStr} Minimum plants to plant: {cycleminimumTruffles:.3f}")
-    # print(f"{timestampStr} Plants needed before planting: {plantsNeededForPlanting:.3f}")
-    # print(f"{timestampStr} Until next planting: {buildTimer(secondsUntilPlanting)}")
-    # print(f"{timestampStr} Next planting at: {getNextCompoundingDate(secondsUntilPlanting)}")
-    # print(f"{timestampStr} Start polling each {(loop_sleep_seconds / 60):.2f} minute {(start_polling_threshold_in_seconds / 60):.3f} minutes before next planting")
-    # print("************************")
-
-    # if secondsUntilPlanting > start_polling_threshold_in_seconds:
-    #     sleep = secondsUntilPlanting - start_polling_threshold_in_seconds
+    if secondsUntilCompounding > start_polling_threshold_in_seconds:
+        sleep = secondsUntilCompounding + start_polling_threshold_in_seconds
             
-    # if availablePlants >= cycleminimumTruffles:
-    #     if nextCycleType == "compound":
-    #         feed()
-    #     if nextCycleType == "sell":
-    #         sell()
+    if secondsUntilCompounding + start_polling_threshold_in_seconds <= 0:
+        if nextCycleType == "compound":
+            print("did compound")
+            # feed()
+        if nextCycleType == "sell":
+            print("did sell")
+            # sell()
         
-    #     if nextCycleType == "compound":
-    #         print("********** COMPOUNDED *******")
-    #         print(f"{timestampStr} Added {availablePlants:.2f} truffles to piggybank!")
-    #     if nextCycleType == "sell":
-    #         print("********** SOLD *************")
-    #         print(f"{timestampStr} Sold {availablePlants:.2f} sold!")
+        if nextCycleType == "compound":
+            print("********** COMPOUNDED *******")
+            print(f"{timestampStr} Added {bankTruffles:.2f} truffles to piggybank!")
+        if nextCycleType == "sell":
+            print("********** SOLD *************")
+            print(f"{timestampStr} Sold {bankTruffles:.2f} sold!")
 
-    #     nextCycleId = getNextCycleId(nextCycleId)
-    #     nextCycleType = findCycleType(nextCycleId)
-    #     print(f"{timestampStr} Next cycleId is: {nextCycleId}")
-    #     print(f"{timestampStr} Next cycle type will be: {nextCycleType}")
-    #     print("**************************")
+        nextCycleId = getNextCycleId(nextCycleId)
+        nextCycleType = findCycleType(nextCycleId)
+        print(f"{timestampStr} Next cycleId is: {nextCycleId}")
+        print(f"{timestampStr} Next cycle type will be: {nextCycleType}")
+        print("**************************")
 
-    # countdown(int(sleep))
+    countdown(int(sleep))
 
 retryCount = 0
 while True:
     try: 
-        itterate(nextCycleId, nextCycleType) 
+        if retryCount < 5:
+            itterate(nextCycleId, nextCycleType)  
     except Exception as e:
         print("[EXCEPTION] Something went wrong! Message:")
         print(f"[EXCEPTION] {e}")
-    finally:
         retryCount = retryCount + 1
         if retryCount < 5:
             itterate(nextCycleId, nextCycleType)
-        print("[EXCEPTION] Retrying! (retryCount: {retryCount})")
+        print(f"[EXCEPTION] Retrying! (retryCount: {retryCount})")
+        
