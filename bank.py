@@ -12,7 +12,6 @@ wallet_public_addr = "0x361472B5784e83fBF779b015f75ea0722741f304"
 dextool_lp_url = "https://www.dextools.io/chain-bsc/api/pair/search?p=0xba6418100dB9B93356bFB6A472411FDCfa2e4141"
 loop_sleep_seconds = 0.5
 margin_of_error = 0.1
-seeds_per_day_per_plant = 86400
 start_polling_threshold_in_seconds = 10
 
 # load private key
@@ -20,31 +19,31 @@ wallet_private_key = open('key.txt', "r").readline()
 
 # load abi
 f = open('piggybank_abi.json')
-garden_abi = json.load(f)
+piggybank_abi = json.load(f)
 
 lp = open('pig_busd_lp_abi.json')
 lp_abi = json.load(lp)
 
 # create contract
-garden_contract = c.connect_to_contract(garden_contract_addr, garden_abi)
+garden_contract = c.connect_to_contract(garden_contract_addr, piggybank_abi)
 lp_contract = c.connect_to_contract(lp_contract_addr, lp_abi)
 
 # cycle class
 class cycleItem: 
-    def __init__(self, id, type, minimumPlants): 
+    def __init__(self, id, type, minimumTruffles): 
         self.id = id 
         self.type = type
-        self.minimumPlants = minimumPlants
+        self.minimumTruffles = minimumTruffles
 
-# cycle types are "plant" or "harvest"
+# cycle types are "compound" or "sell"
 cycle = [] 
-cycle.append( cycleItem(1, "plant", 1.00) )
-cycle.append( cycleItem(2, "plant", 1.00) )
-cycle.append( cycleItem(3, "plant", 1.00) )
-cycle.append( cycleItem(4, "plant", 1.00) )
-cycle.append( cycleItem(5, "plant", 1.00) )
-cycle.append( cycleItem(6, "plant", 1.00) )
-cycle.append( cycleItem(7, "plant", 1.00) )
+cycle.append( cycleItem(1, "compound", 1.00) )
+cycle.append( cycleItem(2, "compound", 1.00) )
+cycle.append( cycleItem(3, "compound", 1.00) )
+cycle.append( cycleItem(4, "compound", 1.00) )
+cycle.append( cycleItem(5, "compound", 1.00) )
+cycle.append( cycleItem(6, "compound", 1.00) )
+cycle.append( cycleItem(7, "compound", 1.00) )
 nextCycleId = 7
 
 # methods
@@ -54,22 +53,22 @@ def total_liquidity():
     yy = json.loads(rr)
     return yy[0]['liquidity']
 
-def seeds_for_1_plant():
-    seedsFor1Plant = garden_contract.functions.SEEDS_TO_GROW_1PLANT().call()
-    return seedsFor1Plant
+def truffles_for_1_piglet():
+    trufflesPerPiglet = garden_contract.functions.TRUFFLES_TO_FEED_1PIGLET().call()
+    return trufflesPerPiglet
 
-def available_seeds():
-    return garden_contract.functions.getUserSeeds(wallet_public_addr).call()
+def available_piglets(piggyBankId):
+    return garden_contract.functions.getMyPiglets(piggyBankId).call()
 
-def planted_plants():
-    return garden_contract.functions.hatcheryPlants(wallet_public_addr).call()
-
-def plant():
-    txn = garden_contract.functions.plantSeeds(wallet_public_addr).buildTransaction(c.get_tx_options(wallet_public_addr, 500000))
+def feed(piggyBankId):
+    txn = garden_contract.functions.feedPiglets(piggyBankId, wallet_public_addr).buildTransaction(c.get_tx_options(wallet_public_addr, 500000))
     return c.send_txn(txn, wallet_private_key)
 
-def harvest():
-    txn = garden_contract.functions.sellSeeds().buildTransaction(c.get_tx_options(wallet_public_addr, 500000))
+def piggyBanks()
+    return garden_contract.functions.getMyPiggyBanks(wallet_public_addr).call()
+
+def sell(piggyBankId):
+    txn = garden_contract.functions.sellTruffles(piggyBankId).buildTransaction(c.get_tx_options(wallet_public_addr, 500000))
     return c.send_txn(txn, wallet_private_key)
 
 def total_supply():
@@ -82,7 +81,7 @@ def buildTimer(t):
     timer = '{:02d} hours, {:02d} minutes, {:02d} seconds'.format(hours, mins, secs)
     return timer
 
-def getNextPlantingDate(t):
+def getNextCompoundingDate(t):
     mins, secs = divmod(int(t), 60)
     hours, mins = divmod(int(mins), 60)
     nextPlantAt = datetime.today() + timedelta(hours=hours,minutes=mins,seconds=secs)
@@ -95,10 +94,10 @@ def countdown(t):
         time.sleep(1)
         t -= 1
 
-def findCycleMinimumPlants(cycleId):
+def findCycleminimumTruffles(cycleId):
     for x in cycle:
         if x.id == cycleId:
-            return x.minimumPlants
+            return x.minimumTruffles
             break
         else:
             x = None
@@ -122,70 +121,72 @@ def getNextCycleId(currentCycleId):
 nextCycleType = findCycleType(nextCycleId)
 
 def itterate(nextCycleId, nextCycleType):
-    seedsFor1Plant = seeds_for_1_plant()
-    available = available_seeds()
-    plantedPlants = planted_plants()
-    availablePlants = available / seedsFor1Plant
+    piggyBanks = piggyBanks()
+    # print(piggyBanks)
+    # trufflesPerPiglet = truffles_for_1_piglet()
+    # available = available_piglets()
+    # plantedPlants = planted_plants()
+    # availablePlants = available / trufflesPerPiglet
 
-    cycleMinimumPlants = findCycleMinimumPlants(nextCycleId)
+    # cycleminimumTruffles = findCycleminimumTruffles(nextCycleId)
 
-    plantsNeededForPlanting = (cycleMinimumPlants + margin_of_error) - availablePlants
-    seedsNeededForPlanting = plantsNeededForPlanting * seedsFor1Plant
+    # plantsNeededForPlanting = (cycleminimumTruffles + margin_of_error) - availablePlants
+    # seedsNeededForPlanting = plantsNeededForPlanting * trufflesPerPiglet
     
-    seedsPerDay = plantedPlants * seeds_per_day_per_plant
-    plantsPerDay = seedsPerDay/seedsFor1Plant
+    # seedsPerDay = plantedPlants * truffles_per_piglet
+    # plantsPerDay = seedsPerDay/trufflesPerPiglet
     
-    daysUntilPlanting = seedsNeededForPlanting / seedsPerDay
-    hoursUntilPlanting = daysUntilPlanting * 24 
-    secondsUntilPlanting = hoursUntilPlanting * 60 * 60
+    # daysUntilPlanting = seedsNeededForPlanting / seedsPerDay
+    # hoursUntilPlanting = daysUntilPlanting * 24 
+    # secondsUntilPlanting = hoursUntilPlanting * 60 * 60
 
-    totalSupply = total_supply()
-    totalLiquidityValue = total_liquidity()
+    # totalSupply = total_supply()
+    # totalLiquidityValue = total_liquidity()
     
-    lpValuePerDay = (float(totalLiquidityValue)/float(totalSupply))*0.12*plantsPerDay
+    # lpValuePerDay = (float(totalLiquidityValue)/float(totalSupply))*0.12*plantsPerDay
 
-    dateTimeObj = datetime.now()
-    timestampStr = dateTimeObj.strftime("[%d-%b-%Y (%H:%M:%S)]")
+    # dateTimeObj = datetime.now()
+    # timestampStr = dateTimeObj.strftime("[%d-%b-%Y (%H:%M:%S)]")
 
-    sleep = loop_sleep_seconds 
+    # sleep = loop_sleep_seconds 
     
-    print("********** STATS *******")
-    print(f"{timestampStr} Next cycle type: {nextCycleType}")
-    print(f"{timestampStr} LP daily value: {(lpValuePerDay):.3f}")
-    print(f"{timestampStr} Plants per day: {(seedsPerDay/seedsFor1Plant):.3f}")
-    print(f"{timestampStr} Planted plants: {plantedPlants:.3f}")
-    print(f"{timestampStr} Available plants: {availablePlants:.3f}")
-    print(f"{timestampStr} Margin of error: {margin_of_error:.3f}")
-    print(f"{timestampStr} Minimum plants to plant: {cycleMinimumPlants:.3f}")
-    print(f"{timestampStr} Plants needed before planting: {plantsNeededForPlanting:.3f}")
-    print(f"{timestampStr} Until next planting: {buildTimer(secondsUntilPlanting)}")
-    print(f"{timestampStr} Next planting at: {getNextPlantingDate(secondsUntilPlanting)}")
-    print(f"{timestampStr} Start polling each {(loop_sleep_seconds / 60):.2f} minute {(start_polling_threshold_in_seconds / 60):.3f} minutes before next planting")
-    print("************************")
+    # print("********** STATS *******")
+    # print(f"{timestampStr} Next cycle type: {nextCycleType}")
+    # print(f"{timestampStr} LP daily value: {(lpValuePerDay):.3f}")
+    # print(f"{timestampStr} Plants per day: {(seedsPerDay/trufflesPerPiglet):.3f}")
+    # print(f"{timestampStr} Planted plants: {plantedPlants:.3f}")
+    # print(f"{timestampStr} Available plants: {availablePlants:.3f}")
+    # print(f"{timestampStr} Margin of error: {margin_of_error:.3f}")
+    # print(f"{timestampStr} Minimum plants to plant: {cycleminimumTruffles:.3f}")
+    # print(f"{timestampStr} Plants needed before planting: {plantsNeededForPlanting:.3f}")
+    # print(f"{timestampStr} Until next planting: {buildTimer(secondsUntilPlanting)}")
+    # print(f"{timestampStr} Next planting at: {getNextCompoundingDate(secondsUntilPlanting)}")
+    # print(f"{timestampStr} Start polling each {(loop_sleep_seconds / 60):.2f} minute {(start_polling_threshold_in_seconds / 60):.3f} minutes before next planting")
+    # print("************************")
 
-    if secondsUntilPlanting > start_polling_threshold_in_seconds:
-        sleep = secondsUntilPlanting - start_polling_threshold_in_seconds
+    # if secondsUntilPlanting > start_polling_threshold_in_seconds:
+    #     sleep = secondsUntilPlanting - start_polling_threshold_in_seconds
             
-    if availablePlants >= cycleMinimumPlants: # and availablePlants < (cycleMinimumPlants + margin_of_error):
-        if nextCycleType == "plant":
-            plant()
-        if nextCycleType == "harvest":
-            harvest()
+    # if availablePlants >= cycleminimumTruffles:
+    #     if nextCycleType == "compound":
+    #         feed()
+    #     if nextCycleType == "sell":
+    #         sell()
         
-        if nextCycleType == "plant":
-            print("********** PLANTED *******")
-            print(f"{timestampStr} Added {availablePlants:.2f} plants to the garden!")
-        if nextCycleType == "harvest":
-            print("********** HARVESTED *****")
-            print(f"{timestampStr} Sold {availablePlants:.2f} plants!")
+    #     if nextCycleType == "plant":
+    #         print("********** COMPOUNDED *******")
+    #         print(f"{timestampStr} Added {availablePlants:.2f} truffles to piggybank!")
+    #     if nextCycleType == "harvest":
+    #         print("********** SOLD *************")
+    #         print(f"{timestampStr} Sold {availablePlants:.2f} sold!")
 
-        nextCycleId = getNextCycleId(nextCycleId)
-        nextCycleType = findCycleType(nextCycleId)
-        print(f"{timestampStr} Next cycleId is: {nextCycleId}")
-        print(f"{timestampStr} Next cycle type will be: {nextCycleType}")
-        print("**************************")
+    #     nextCycleId = getNextCycleId(nextCycleId)
+    #     nextCycleType = findCycleType(nextCycleId)
+    #     print(f"{timestampStr} Next cycleId is: {nextCycleId}")
+    #     print(f"{timestampStr} Next cycle type will be: {nextCycleType}")
+    #     print("**************************")
 
-    countdown(int(sleep))
+    # countdown(int(sleep))
 
 retryCount = 0
 while True:
