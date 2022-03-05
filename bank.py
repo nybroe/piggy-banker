@@ -25,7 +25,7 @@ lp = open('pig_busd_lp_abi.json')
 lp_abi = json.load(lp)
 
 # create contract
-garden_contract = c.connect_to_contract(garden_contract_addr, piggybank_abi)
+piggy_bank_contract = c.connect_to_contract(piggybank_contract_addr, piggybank_abi)
 lp_contract = c.connect_to_contract(lp_contract_addr, lp_abi)
 
 # cycle class
@@ -54,21 +54,21 @@ def total_liquidity():
     return yy[0]['liquidity']
 
 def truffles_for_1_piglet():
-    trufflesPerPiglet = garden_contract.functions.TRUFFLES_TO_FEED_1PIGLET().call()
+    trufflesPerPiglet = piggy_bank_contract.functions.TRUFFLES_TO_FEED_1PIGLET().call()
     return trufflesPerPiglet
 
 def available_piglets(piggyBankId):
-    return garden_contract.functions.getMyPiglets(piggyBankId).call()
+    return piggy_bank_contract.functions.getMyPiglets(piggyBankId).call()
 
 def feed(piggyBankId):
-    txn = garden_contract.functions.feedPiglets(piggyBankId, wallet_public_addr).buildTransaction(c.get_tx_options(wallet_public_addr, 500000))
+    txn = piggy_bank_contract.functions.feedPiglets(piggyBankId, wallet_public_addr).buildTransaction(c.get_tx_options(wallet_public_addr, 500000))
     return c.send_txn(txn, wallet_private_key)
 
-def piggyBanks()
-    return garden_contract.functions.getMyPiggyBanks(wallet_public_addr).call()
+def piggyBanks():
+    return piggy_bank_contract.functions.getMyPiggyBanks(wallet_public_addr).call()
 
 def sell(piggyBankId):
-    txn = garden_contract.functions.sellTruffles(piggyBankId).buildTransaction(c.get_tx_options(wallet_public_addr, 500000))
+    txn = piggy_bank_contract.functions.sellTruffles(piggyBankId).buildTransaction(c.get_tx_options(wallet_public_addr, 500000))
     return c.send_txn(txn, wallet_private_key)
 
 def total_supply():
@@ -84,8 +84,8 @@ def buildTimer(t):
 def getNextCompoundingDate(t):
     mins, secs = divmod(int(t), 60)
     hours, mins = divmod(int(mins), 60)
-    nextPlantAt = datetime.today() + timedelta(hours=hours,minutes=mins,seconds=secs)
-    timestampStr = nextPlantAt.strftime("[%d-%b-%Y (%H:%M:%S)]")
+    nextAt = datetime.today() + timedelta(hours=hours,minutes=mins,seconds=secs)
+    timestampStr = nextAt.strftime("[%d-%b-%Y (%H:%M:%S)]")
     return timestampStr
 
 def countdown(t):
@@ -173,10 +173,10 @@ def itterate(nextCycleId, nextCycleType):
     #     if nextCycleType == "sell":
     #         sell()
         
-    #     if nextCycleType == "plant":
+    #     if nextCycleType == "compound":
     #         print("********** COMPOUNDED *******")
     #         print(f"{timestampStr} Added {availablePlants:.2f} truffles to piggybank!")
-    #     if nextCycleType == "harvest":
+    #     if nextCycleType == "sell":
     #         print("********** SOLD *************")
     #         print(f"{timestampStr} Sold {availablePlants:.2f} sold!")
 
@@ -191,7 +191,7 @@ def itterate(nextCycleId, nextCycleType):
 retryCount = 0
 while True:
     try: 
-        itterate() 
+        itterate(nextCycleId, nextCycleType) 
     except Exception as e:
         print("[EXCEPTION] Something went wrong! Message:")
         print(f"[EXCEPTION] {e}")
