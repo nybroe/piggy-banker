@@ -10,7 +10,7 @@ piggybank_contract_addr = "0x1b2F460d8C562935c145A21f451A08d686A2b508"
 lp_contract_addr = "0xba6418100dB9B93356bFB6A472411FDCfa2e4141"
 wallet_public_addr = "0x361472B5784e83fBF779b015f75ea0722741f304"
 dextool_lp_url = "https://www.dextools.io/chain-bsc/api/pair/search?p=0xba6418100dB9B93356bFB6A472411FDCfa2e4141"
-loop_sleep_seconds = 0.5
+loop_sleep_seconds = 10 #0.5
 start_polling_threshold_in_seconds = 10
 piggy_bank_id = 0
 
@@ -165,16 +165,17 @@ def itterate(nextCycleId, nextCycleType):
     print(f"{timestampStr} Piglets: {piglets}")
     print(f"{timestampStr} Truffles needed to get 1 piglet: {trufflesToGet1Piglet}")
     print(f"{timestampStr} Truffles generated: {bankTruffles}")
+    print(f"{timestampStr} Truffles needed for 1 piglet: {trufflesToGet1Piglet-bankTruffles}")
     print(f"{timestampStr} Truffles LP value: ${lpValue:.2f}")
     print(f"{timestampStr} Next compounding at: {nextCompoundingDate}")
     print("************************")
     
     cycleminimumTruffles = findCycleminimumTruffles(nextCycleId)
     
-    if secondsUntilCompounding > start_polling_threshold_in_seconds:
-        sleep = secondsUntilCompounding + start_polling_threshold_in_seconds
+    #if secondsUntilCompounding > start_polling_threshold_in_seconds:
+    #    sleep = secondsUntilCompounding + start_polling_threshold_in_seconds
             
-    if secondsUntilCompounding + start_polling_threshold_in_seconds <= 0:
+    if bankTruffles >= trufflesToGet1Piglet: #secondsUntilCompounding + start_polling_threshold_in_seconds <= 0:
         if nextCycleType == "compound":
             # print("did compound")
             feed()
