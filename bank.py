@@ -35,22 +35,6 @@ class cycleItem:
         self.type = type
         self.minimumTruffles = minimumTruffles
 
-# piggyBank class
-# class piggyBank: 
-#     def __init__(self,
-#                  id,
-#                  isStakeOn,
-#                  hatcheryPiglets,
-#                  claimedTruffles,
-#                  lastFeeding,
-#                  lastCompounded,
-#                  trufflesUsed,
-#                  trufflesSold,
-#                  isMaxPayout): 
-#         self.id = id 
-#         self.type = type
-#         self.minimumTruffles = minimumTruffles
-
 # cycle types are "compound" or "sell"
 cycle = [] 
 cycle.append( cycleItem(1, "compound", 1.00) )
@@ -63,11 +47,13 @@ cycle.append( cycleItem(7, "compound", 1.00) )
 nextCycleId = 7
 
 # methods
-def total_liquidity():
+def fetch_dextools_values():
     scraper = cloudscraper.create_scraper()
     rr = scraper.get(dextool_lp_url).text 
     yy = json.loads(rr)
-    return yy[0]['liquidity']
+    totalLiquidity = yy[0]['liquidity']
+    pooledBusd = yy[0]['reserve1']
+    return [totalLiquidity, pooledBusd]
 
 def truffles_to_get_1_piglet():
     trufflesToGet1Piglet = piggy_bank_contract.functions.TRUFFLES_TO_FEED_1PIGLET().call()
@@ -141,20 +127,34 @@ nextCycleType = findCycleType(nextCycleId)
 def itterate(nextCycleId, nextCycleType):
     # piggyBanks = piggy_banks()
     # print(piggyBanks)
+
+    dexToolsValues = fetch_dextools_values()
     
     info = piggy_bank_info()
     piglets = info[2]
     durationTimestamp = info[9][2]
-    nextCompoundingDate = datetime.fromtimestamp(durationTimestamp) + timedelta(hours=24)
+    compoundingStartedDate = datetime.fromtimestamp(durationTimestamp) # + timedelta(hours=24)
     bankTruffles = bank_truffles()
     bonus = bank_bonus()
     trufflesToGet1Piglet = truffles_to_get_1_piglet()
     totalSupply = total_supply()
-    totalLiquidityValue = total_liquidity()
-    lpValue = (float(totalLiquidityValue)/float(totalSupply))*(trufflesToGet1Piglet/bankTruffles)
+    lpBusdValue = dexToolsValues[0]/dexToolsValues[1]
+    lpValue = (float(dexToolsValues[0])/float(totalSupply))*lpBusdValue*(bankTruffles/trufflesToGet1Piglet)
+    daysToAdd = 0
 
-    secondsUntilCompounding =  (datetime.today() + timedelta(hours=19) - nextCompoundingDate).total_seconds()
+    nextCompoundingDate = (datetime.today() + timedelta(days=daysToAdd)).replace(hour=compoundingStartedDate.hour, minute=compoundingStartedDate.minute, second=compoundingStartedDate.second)
+    date_format_str = '%d/%m/%Y %H:%M:%S'
+    
+    nextStr = nextCompoundingDate.strftime(date_format_str)
+    todayStr = datetime.today().strftime(date_format_str)
 
+    nextDate = datetime.strptime(nextStr, date_format_str)
+    todayDate = datetime.strptime(todayStr, date_format_str)
+    
+    diff = nextDate - todayDate
+    secondsUntilCompounding = diff.total_seconds()
+    print(f"next: {secondsUntilCompounding}")
+    
     dateTimeObj = datetime.now()
     timestampStr = dateTimeObj.strftime("[%d-%b-%Y (%H:%M:%S)]")
 
@@ -165,7 +165,7 @@ def itterate(nextCycleId, nextCycleType):
     print(f"{timestampStr} Piglets: {piglets}")
     print(f"{timestampStr} Truffles needed to get 1 piglet: {trufflesToGet1Piglet}")
     print(f"{timestampStr} Truffles generated: {bankTruffles}")
-    print(f"{timestampStr} Truffles LP value: {lpValue:.2f}")
+    print(f"{timestampStr} Truffles LP value: ${lpValue:.2f}")
     print(f"{timestampStr} Next compounding at: {nextCompoundingDate}")
     print("************************")
     
