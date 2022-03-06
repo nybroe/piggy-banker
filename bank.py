@@ -176,11 +176,11 @@ def itterate(nextCycleId, nextCycleType):
             
     if secondsUntilCompounding + start_polling_threshold_in_seconds <= 0:
         if nextCycleType == "compound":
-            print("did compound")
-            # feed()
+            # print("did compound")
+            feed()
         if nextCycleType == "sell":
-            print("did sell")
-            # sell()
+            # print("did sell")
+            sell()
         
         if nextCycleType == "compound":
             print("********** COMPOUNDED *******")
